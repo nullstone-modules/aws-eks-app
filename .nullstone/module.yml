@@ -1,0 +1,13 @@
+org_name: nullstone
+name: aws-eks-app
+friendly_name: EKS Application
+description: Creates an application launched in an AWS EKS cluster.
+category: app
+subcategory: container
+provider_types:
+    - aws
+platform: k8s
+subplatform: eks
+type: ""
+appCategories: []
+is_public: true

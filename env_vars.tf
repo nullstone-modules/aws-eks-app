@@ -1,4 +1,4 @@
-variable "service_env_vars" {
+variable "env_vars" {
   type        = map(string)
   default     = {}
   description = <<EOF
@@ -8,7 +8,7 @@ It is dangerous to put sensitive information in this variable because they are n
 EOF
 }
 
-variable "service_secrets" {
+variable "secrets" {
   type        = map(string)
   default     = {}
   sensitive   = true
@@ -29,8 +29,8 @@ locals {
     NULLSTONE_PRIVATE_HOSTS = join(",", local.private_hosts)
   })
 
-  input_env_vars = merge(local.standard_env_vars, local.cap_env_vars, var.service_env_vars)
-  input_secrets  = merge(local.cap_secrets, var.service_secrets)
+  input_env_vars = merge(local.standard_env_vars, local.cap_env_vars, var.env_vars)
+  input_secrets  = merge(local.cap_secrets, var.secrets)
 }
 
 data "ns_env_variables" "this" {

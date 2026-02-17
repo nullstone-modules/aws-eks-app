@@ -3,9 +3,15 @@ data "ns_connection" "cluster_namespace" {
   contract = "cluster-namespace/aws/k8s:eks"
 }
 
+data "ns_connection" "cluster" {
+  name     = "cluster"
+  contract = "cluster/aws/k8s:eks"
+  via      = data.ns_connection.cluster_namespace.name
+}
+
 locals {
-  cluster_arn                 = data.ns_connection.cluster_namespace.outputs.cluster_arn
   cluster_name                = data.ns_connection.cluster_namespace.outputs.cluster_name
+  kubernetes_namespace        = data.ns_connection.cluster_namespace.outputs.kubernetes_namespace
   cluster_endpoint            = data.ns_connection.cluster_namespace.outputs.cluster_endpoint
   cluster_ca_certificate      = data.ns_connection.cluster_namespace.outputs.cluster_ca_certificate
   cluster_oidc_issuer         = try(data.ns_connection.cluster_namespace.outputs.cluster_oidc_issuer, "")

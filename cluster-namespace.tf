@@ -4,10 +4,12 @@ data "ns_connection" "cluster_namespace" {
 }
 
 locals {
-  cluster_id             = data.ns_connection.cluster_namespace.outputs.cluster_id
-  cluster_name           = data.ns_connection.cluster_namespace.outputs.cluster_name
-  cluster_endpoint       = data.ns_connection.cluster_namespace.outputs.cluster_endpoint
-  cluster_ca_certificate = data.ns_connection.cluster_namespace.outputs.cluster_ca_certificate
+  cluster_arn                 = data.ns_connection.cluster_namespace.outputs.cluster_arn
+  cluster_name                = data.ns_connection.cluster_namespace.outputs.cluster_name
+  cluster_endpoint            = data.ns_connection.cluster_namespace.outputs.cluster_endpoint
+  cluster_ca_certificate      = data.ns_connection.cluster_namespace.outputs.cluster_ca_certificate
+  cluster_oidc_issuer         = try(data.ns_connection.cluster_namespace.outputs.cluster_oidc_issuer, "")
+  cluster_openid_provider_arn = try(data.ns_connection.cluster_namespace.outputs.cluster_openid_provider_arn, "")
 }
 
 data "aws_eks_cluster_auth" "cluster" {
@@ -18,12 +20,4 @@ provider "kubernetes" {
   host                   = local.cluster_endpoint
   token                  = data.aws_eks_cluster_auth.cluster.token
   cluster_ca_certificate = base64decode(local.cluster_ca_certificate)
-}
-
-provider "helm" {
-  kubernetes {
-    host                   = local.cluster_endpoint
-    token                  = data.aws_eks_cluster_auth.cluster.token
-    cluster_ca_certificate = base64decode(local.cluster_ca_certificate)
-  }
 }

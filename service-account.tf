@@ -80,7 +80,7 @@ resource "kubernetes_service_account_v1" "app" {
   metadata {
     namespace = local.app_namespace
     name      = local.app_name
-    labels    = local.k8s_component_labels
+    labels    = local.component_labels
 
     annotations = {
       // This indicates which AWS IAM role this kubernetes service account can impersonate

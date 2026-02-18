@@ -40,3 +40,54 @@ data "aws_secretsmanager_secret_version" "unmanaged" {
 
   secret_id = each.value
 }
+
+locals {
+  app_secret_store_name = "${local.app_name}-secrets"
+}
+
+// SecretProviderClass tells the CSI driver which Secrets Manager secrets to fetch
+// and syncs them into a K8s Secret (local.app_secret_store_name) so they can be
+// referenced as env vars via secretKeyRef in the pod spec.
+resource "kubernetes_manifest" "secret_provider_class" {
+  count = length(local.all_secret_keys) > 0 ? 1 : 0
+
+  manifest = {
+    apiVersion = "secrets-store.csi.x-k8s.io/v1"
+    kind       = "SecretProviderClass"
+
+    metadata = {
+      name      = local.app_name
+      namespace = local.app_namespace
+      labels    = local.component_labels
+    }
+
+    spec = {
+      provider = "aws"
+
+      parameters = {
+        // Each secret gets its own Secrets Manager secret; objectAlias becomes
+        // the filename under the mount path and the key in the synced K8s Secret.
+        objects = yamlencode([
+          for key, arn in nonsensitive(local.all_secrets) : {
+            objectName  = arn
+            objectType  = "secretsmanager"
+            objectAlias = key
+          }
+        ])
+      }
+
+      secretObjects = [
+        {
+          secretName = local.app_secret_store_name
+          type       = "Opaque"
+          data = [
+            for key in tolist(local.all_secret_keys) : {
+              objectName = key // matches objectAlias above
+              key        = key
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

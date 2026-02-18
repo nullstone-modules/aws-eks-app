@@ -66,6 +66,23 @@ resource "kubernetes_deployment_v1" "this" {
           }
         }
 
+        dynamic "volume" {
+          for_each = length(local.all_secret_keys) > 0 ? [1] : []
+
+          content {
+            name = "secrets-store"
+
+            csi {
+              driver    = "secrets-store.csi.k8s.io"
+              read_only = true
+
+              volume_attributes = {
+                secretProviderClass = local.app_name
+              }
+            }
+          }
+        }
+
         container {
           name  = local.main_container_name
           image = "${local.image_url}:${local.app_version}"
@@ -295,6 +312,16 @@ resource "kubernetes_deployment_v1" "this" {
               sub_path          = volume_mount.value.sub_path
               mount_propagation = volume_mount.value.mount_propagation
               read_only         = volume_mount.value.read_only
+            }
+          }
+
+          dynamic "volume_mount" {
+            for_each = length(local.all_secret_keys) > 0 ? [1] : []
+
+            content {
+              name       = "secrets-store"
+              mount_path = "/mnt/secrets-store"
+              read_only  = true
             }
           }
         }

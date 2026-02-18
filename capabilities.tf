@@ -73,5 +73,109 @@ locals {
         mappings = jsonencode({})
       }
     ]
+
+    volumes = [
+      {
+        cap_tf_id = "x"
+        name      = ""
+        empty_dir = jsonencode({})
+        persistent_volume_claim = jsonencode({
+          claim_name = ""    // Required
+          read_only  = false // Optional
+        })
+      }
+    ]
+
+    volume_mounts = [
+      {
+        cap_tf_id         = "x"
+        name              = ""   // Required
+        mount_path        = ""   // Required
+        sub_path          = null // Path within the volume from which the container's volume should be mounted
+        mount_propagation = null
+        read_only         = null // Defaults to false
+      }
+    ]
+
+    startup_probes = [
+      {
+        cap_tf_id             = "x"
+        initial_delay_seconds = null
+        period_seconds        = null
+        timeout_seconds       = null
+        success_threshold     = null
+        failure_threshold     = null
+
+        exec = jsonencode({
+          command = []
+        })
+        grpc = jsonencode({
+          port    = 9000
+          service = "myservice"
+        })
+        http_get = jsonencode({
+          path   = "/"
+          port   = 80
+          scheme = "HTTP"
+        })
+        tcp_socket = jsonencode({
+          port = 80
+        })
+      }
+    ]
+
+    readiness_probes = [
+      {
+        cap_tf_id             = "x"
+        initial_delay_seconds = null
+        period_seconds        = null
+        timeout_seconds       = null
+        success_threshold     = null
+        failure_threshold     = null
+
+        exec = jsonencode({
+          command = []
+        })
+        grpc = jsonencode({
+          port    = 9000
+          service = "myservice"
+        })
+        http_get = jsonencode({
+          path   = "/"
+          port   = 80
+          scheme = "HTTP"
+        })
+        tcp_socket = jsonencode({
+          port = 80
+        })
+      }
+    ]
+
+    liveness_probes = [
+      {
+        cap_tf_id             = "x"
+        initial_delay_seconds = null
+        period_seconds        = null
+        timeout_seconds       = null
+        success_threshold     = null
+        failure_threshold     = null
+
+        exec = jsonencode({
+          command = []
+        })
+        grpc = jsonencode({
+          port    = 9000
+          service = "myservice"
+        })
+        http_get = jsonencode({
+          path   = "/"
+          port   = 80
+          scheme = "HTTP"
+        })
+        tcp_socket = jsonencode({
+          port = 80
+        })
+      }
+    ]
   }
 }

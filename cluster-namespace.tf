@@ -10,6 +10,7 @@ data "ns_connection" "cluster" {
 }
 
 locals {
+  cluster_arn                 = data.ns_connection.cluster_namespace.outputs.cluster_arn
   cluster_name                = data.ns_connection.cluster_namespace.outputs.cluster_name
   kubernetes_namespace        = data.ns_connection.cluster_namespace.outputs.kubernetes_namespace
   cluster_endpoint            = data.ns_connection.cluster_namespace.outputs.cluster_endpoint

@@ -16,7 +16,7 @@ data "aws_iam_policy_document" "app_assume" {
     ]
 
     principals {
-      type = "Service"
+      type        = "Service"
       identifiers = ["pods.eks.amazonaws.com"]
     }
   }
@@ -50,6 +50,28 @@ data "aws_iam_policy_document" "app_irsa_assume" {
       test     = "StringEquals"
       variable = "${local.oidc_issuer_noproto}:aud"
       values   = ["sts.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_iam_role_policy" "app" {
+  role   = aws_iam_role.app.id
+  policy = data.aws_iam_policy_document.app.json
+}
+
+data "aws_iam_policy_document" "app" {
+  statement {
+    for_each = length(local.all_secret_keys) > 0 ? 1 : 0
+
+    content {
+      sid       = "AllowReadSecrets"
+      effect    = "Allow"
+      resources = values(local.all_secrets)
+
+      actions = [
+        "secretsmanager:GetSecretValue",
+        "kms:Decrypt"
+      ]
     }
   }
 }

@@ -61,7 +61,14 @@ resource "aws_iam_role_policy" "app" {
 
 data "aws_iam_policy_document" "app" {
   statement {
-    for_each = length(local.all_secret_keys) > 0 ? 1 : 0
+    sid       = "AllowPassRoleToECS"
+    effect    = "Allow"
+    actions   = ["iam:PassRole"]
+    resources = [aws_iam_role.app.arn]
+  }
+
+  dynamic "statement" {
+    for_each = length(local.all_secret_keys) > 0 ? [1] : []
 
     content {
       sid       = "AllowReadSecrets"

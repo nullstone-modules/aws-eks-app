@@ -19,12 +19,12 @@ locals {
   cluster_openid_provider_arn = try(data.ns_connection.cluster_namespace.outputs.cluster_openid_provider_arn, "")
 }
 
-data "aws_eks_cluster_auth" "cluster" {
+ephemeral "aws_eks_cluster_auth" "cluster" {
   name = local.cluster_name
 }
 
 provider "kubernetes" {
   host                   = local.cluster_endpoint
-  token                  = data.aws_eks_cluster_auth.cluster.token
+  token                  = ephemeral.aws_eks_cluster_auth.cluster.token
   cluster_ca_certificate = base64decode(local.cluster_ca_certificate)
 }

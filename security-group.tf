@@ -71,29 +71,3 @@ resource "aws_security_group_rule" "this-http-to-private-subnets" {
 
   count = signum(length(local.private_cidrs))
 }
-
-resource "kubernetes_manifest" "security_group_policy" {
-  manifest = {
-    apiVersion = "v1beta1"
-    kind       = "SecurityGroupPolicy"
-
-    metadata = {
-      namespace = local.kubernetes_namespace
-      name      = local.resource_name
-    }
-
-    spec = {
-      podSelector = {
-        matchLabels = {
-          "nullstone.io/stack" = local.stack_name
-          "nullstone.io/app"   = local.app_name
-          "nullstone.io/env"   = local.env_name
-        }
-      }
-
-      securityGroups = {
-        groupIds = [aws_security_group.this.id]
-      }
-    }
-  }
-}

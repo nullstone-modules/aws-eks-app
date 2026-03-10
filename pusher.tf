@@ -3,7 +3,7 @@
 resource "aws_iam_role" "image_pusher" {
   name               = "image-pusher-${local.resource_name}"
   tags               = local.tags
-  assume_role_policy = data.aws_iam_policy_document.image_pusher.json
+  assume_role_policy = data.aws_iam_policy_document.image_pusher_assume.json
 
   count = var.image_url == "" ? 1 : 0
 }

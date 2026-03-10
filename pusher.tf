@@ -11,7 +11,12 @@ resource "aws_iam_role" "image_pusher" {
 data "aws_iam_policy_document" "image_pusher_assume" {
   statement {
     effect  = "Allow"
-    actions = ["sts:AssumeRole"]
+
+    actions = [
+      "sts:AssumeRole",
+      "sts:SetSourceIdentity",
+    ]
+
     principals {
       type        = "AWS"
       identifiers = [local.ns_agent_user_arn]

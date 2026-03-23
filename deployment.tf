@@ -100,10 +100,10 @@ resource "kubernetes_deployment_v1" "this" {
               memory = var.memory
             }
 
-            limits = {
-              cpu    = var.cpu
-              memory = var.memory
-            }
+            limits = merge(
+              var.max_cpu != "" ? { cpu = var.max_cpu } : {},
+              var.max_memory != "" ? { memory = var.max_memory } : {},
+            )
           }
 
           dynamic "startup_probe" {

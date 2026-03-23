@@ -2,6 +2,10 @@ data "ns_workspace" "this" {}
 
 data "ns_agent" "this" {}
 
+locals {
+  ns_agent_user_arn = data.ns_agent.this.aws_user_arn
+}
+
 // Generate a random suffix to ensure uniqueness of resources
 resource "random_string" "resource_suffix" {
   length  = 5
@@ -9,10 +13,6 @@ resource "random_string" "resource_suffix" {
   upper   = false
   numeric = false
   special = false
-}
-
-locals {
-  ns_agent_user_arn = data.ns_agent.this.aws_user_arn
 }
 
 locals {

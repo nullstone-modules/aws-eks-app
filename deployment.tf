@@ -1,6 +1,7 @@
 locals {
   main_container_name = "main"
   command             = length(var.command) > 0 ? var.command : null
+  effective_image_url = local.app_version == "" ? local.image_url : "${local.image_url}:${local.app_version}"
 }
 
 resource "kubernetes_deployment_v1" "this" {
@@ -14,7 +15,17 @@ resource "kubernetes_deployment_v1" "this" {
 
   # Pods specs
   spec {
-    replicas = var.replicas
+    replicas               = var.replicas
+    revision_history_limit = 10
+
+    strategy {
+      type = "RollingUpdate"
+
+      rolling_update {
+        max_surge       = "25%"
+        max_unavailable = "25%"
+      }
+    }
 
     selector {
       match_labels = local.match_labels
@@ -85,7 +96,7 @@ resource "kubernetes_deployment_v1" "this" {
 
         container {
           name  = local.main_container_name
-          image = "${local.image_url}:${local.app_version}"
+          image = local.effective_image_url
           args  = local.command
 
           security_context {

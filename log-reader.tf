@@ -8,7 +8,7 @@ resource "aws_iam_role" "log_reader" {
 
 data "aws_iam_policy_document" "log_reader_assume" {
   statement {
-    effect  = "Allow"
+    effect = "Allow"
 
     actions = [
       "sts:AssumeRole",

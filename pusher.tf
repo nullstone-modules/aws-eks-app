@@ -10,7 +10,7 @@ resource "aws_iam_role" "image_pusher" {
 
 data "aws_iam_policy_document" "image_pusher_assume" {
   statement {
-    effect  = "Allow"
+    effect = "Allow"
 
     actions = [
       "sts:AssumeRole",

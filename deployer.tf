@@ -8,7 +8,7 @@ resource "aws_iam_role" "deployer" {
 
 data "aws_iam_policy_document" "deployer_assume" {
   statement {
-    effect  = "Allow"
+    effect = "Allow"
 
     actions = [
       "sts:AssumeRole",

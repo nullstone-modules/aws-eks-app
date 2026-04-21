@@ -3,6 +3,16 @@ output "region" {
   description = "string ||| The region where the ECS container resides."
 }
 
+output "service_name" {
+  value       = local.app_name
+  description = "string ||| The name of the kubernetes deployment for the app."
+}
+
+output "service_namespace" {
+  value       = local.app_namespace
+  description = "string ||| The kubernetes namespace where the app resides."
+}
+
 output "log_provider" {
   value       = "eks"
   description = "string ||| 'eks'"
@@ -59,6 +69,11 @@ output "deployer" {
   }
 
   description = "object({ role_arn: string, session_duration: number }) ||| An AWS Role with explicit privilege to deploy."
+}
+
+output "main_container_name" {
+  value       = local.main_container_name
+  description = "string ||| The name of the container definition for the main service container"
 }
 
 output "app_security_group_id" {

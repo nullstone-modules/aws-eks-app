@@ -17,6 +17,7 @@ locals {
   cluster_ca_certificate      = data.ns_connection.cluster_namespace.outputs.cluster_ca_certificate
   cluster_oidc_issuer         = try(data.ns_connection.cluster_namespace.outputs.cluster_oidc_issuer, "")
   cluster_openid_provider_arn = try(data.ns_connection.cluster_namespace.outputs.cluster_openid_provider_arn, "")
+  use_irsa                    = try(data.ns_connection.cluster.outputs.use_irsa, false)
 }
 
 ephemeral "aws_eks_cluster_auth" "cluster" {

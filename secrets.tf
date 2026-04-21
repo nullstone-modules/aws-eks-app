@@ -65,6 +65,7 @@ resource "kubernetes_manifest" "secret_provider_class" {
       provider = "aws"
 
       parameters = {
+        usePodIdentity = true
         // Each secret gets its own Secrets Manager secret; objectAlias becomes
         // the filename under the mount path and the key in the synced K8s Secret.
         objects = yamlencode([

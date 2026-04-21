@@ -88,7 +88,7 @@ resource "kubernetes_deployment_v1" "this" {
               read_only = true
 
               volume_attributes = {
-                secretProviderClass = local.app_name
+                secretProviderClass = kubernetes_manifest.secret_provider_class[volume.key].manifest.metadata.name
               }
             }
           }

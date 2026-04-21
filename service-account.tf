@@ -77,6 +77,7 @@ data "aws_iam_policy_document" "app" {
 
       actions = [
         "secretsmanager:GetSecretValue",
+        "secretsmanager:DescribeSecret",
         "kms:Decrypt"
       ]
     }

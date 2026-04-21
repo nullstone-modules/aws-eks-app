@@ -83,15 +83,6 @@ data "aws_iam_policy_document" "app" {
   }
 }
 
-resource "aws_eks_pod_identity_association" "app" {
-  count = local.use_irsa ? 0 : 1
-
-  cluster_name    = local.cluster_name
-  namespace       = local.app_namespace
-  service_account = local.app_name
-  role_arn        = aws_iam_role.app.arn
-}
-
 resource "kubernetes_service_account_v1" "app" {
   metadata {
     namespace = local.app_namespace
@@ -105,4 +96,13 @@ resource "kubernetes_service_account_v1" "app" {
   }
 
   automount_service_account_token = true
+}
+
+resource "aws_eks_pod_identity_association" "app" {
+  count = local.use_irsa ? 0 : 1
+
+  cluster_name    = local.cluster_name
+  namespace       = kubernetes_service_account_v1.app.metadata[0].namespace
+  service_account = kubernetes_service_account_v1.app.metadata[0].name
+  role_arn        = aws_iam_role.app.arn
 }

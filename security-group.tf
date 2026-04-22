@@ -71,3 +71,24 @@ resource "aws_security_group_rule" "this-http-to-private-subnets" {
 
   count = signum(length(local.private_cidrs))
 }
+
+resource "kubernetes_manifest" "security_group_policy" {
+  manifest = {
+    apiVersion = "vpcresources.k8s.aws/v1beta1"
+    kind       = "SecurityGroupPolicy"
+
+    metadata = {
+      name      = aws_security_group.this.name
+      namespace = local.app_namespace
+    }
+
+    spec = {
+      podSelector = {
+        matchLabels = local.match_labels
+      }
+      securityGroups = {
+        groupIds = [aws_security_group.this.id]
+      }
+    }
+  }
+}

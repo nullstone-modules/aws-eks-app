@@ -35,6 +35,19 @@ resource "aws_security_group_rule" "this-https-to-world" {
   cidr_blocks       = ["0.0.0.0/0"]
 }
 
+// Intra-VPC egress on any port/protocol so this pod can reach other pods (on
+// any service_port) and managed AWS services. Access to AWS services is
+// restricted at those services' own security groups (ingress from this pod SG).
+resource "aws_security_group_rule" "this-egress-to-vpc" {
+  description       = "Allow all egress within the VPC for pod-to-pod and managed AWS services"
+  security_group_id = aws_security_group.this.id
+  type              = "egress"
+  protocol          = "-1"
+  from_port         = 0
+  to_port           = 0
+  cidr_blocks       = [local.vpc_cidr]
+}
+
 resource "aws_security_group_rule" "this-http-from-private-subnets" {
   description       = "Allow any service on this network in private subnets to communicate with this service on the service port"
   security_group_id = aws_security_group.this.id
@@ -58,18 +71,6 @@ resource "aws_security_group_rule" "this-http-from-public-subnets" {
   cidr_blocks       = local.public_cidrs
 
   count = var.service_port == 0 ? 0 : signum(length(local.public_cidrs))
-}
-
-resource "aws_security_group_rule" "this-http-to-private-subnets" {
-  description       = "Allow this service to communicate with other services on the network over HTTP"
-  security_group_id = aws_security_group.this.id
-  type              = "egress"
-  protocol          = "tcp"
-  from_port         = 80
-  to_port           = 80
-  cidr_blocks       = local.private_cidrs
-
-  count = signum(length(local.private_cidrs))
 }
 
 resource "kubernetes_manifest" "security_group_policy" {

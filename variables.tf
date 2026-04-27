@@ -92,3 +92,12 @@ If blank, Nullstone will create an image repository and provide management of im
 If you configure image_url, you can still use `nullstone deploy --version=<...>` to deploy a specific image tag.
 EOF
 }
+
+variable "disable_security_group" {
+  type        = bool
+  default     = false
+  description = <<EOF
+Set to true to disable the use of security groups for this app's pods.
+This will eliminate the need for an ENI (which are limited per node).
+EOF
+}

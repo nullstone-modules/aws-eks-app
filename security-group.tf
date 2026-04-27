@@ -74,6 +74,8 @@ resource "aws_security_group_rule" "this-http-from-public-subnets" {
 }
 
 resource "kubernetes_manifest" "security_group_policy" {
+  count = var.disable_security_group ? 0 : 1
+
   manifest = {
     apiVersion = "vpcresources.k8s.aws/v1beta1"
     kind       = "SecurityGroupPolicy"

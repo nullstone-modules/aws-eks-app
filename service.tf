@@ -22,7 +22,7 @@ resource "kubernetes_service_v1" "this" {
   metadata {
     name        = local.service_name
     namespace   = local.app_namespace
-    labels      = local.app_labels
+    labels      = local.component_labels
     annotations = local.service_annotations
   }
 

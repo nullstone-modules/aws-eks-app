@@ -3,7 +3,7 @@ resource "aws_secretsmanager_secret" "app_secret" {
 
   name_prefix             = "${local.block_name}/${each.value}/"
   tags                    = local.tags
-  kms_key_id              = aws_kms_alias.this.arn
+  kms_key_id              = module.scaffold.kms_alias_arn
   recovery_window_in_days = 0 // force delete so that re-adding the secret doesn't cause issues
 
   lifecycle {

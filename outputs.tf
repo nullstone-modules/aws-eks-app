@@ -19,11 +19,7 @@ output "log_provider" {
 }
 
 output "log_reader" {
-  value = {
-    role_arn         = aws_iam_role.log_reader.arn
-    session_duration = 3600 // 1 hour
-  }
-
+  value       = module.scaffold.log_reader
   description = "object({ role_arn: string, session_duration: number }) ||| An AWS Role with explicit privilege to view logs."
 }
 
@@ -32,42 +28,27 @@ output "metrics_provider" {
   description = "string ||| "
 }
 
-/*
-TODO: Configure metrics and create metrics_reader role
 output "metrics_reader" {
-  value = {
-    role_arn         = aws_iam_role.metrics_reader.arn
-    session_duration = 3600 // 1 hour
-  }
-
+  value       = module.scaffold.metrics_reader
   description = "object({ role_arn: string, session_duration: number }) ||| An AWS Role with explicit privilege to view metrics."
 }
-*/
 
 output "metrics_mappings" {
   value = local.metrics_mappings
 }
 
 output "image_repo_url" {
-  value       = local.image_url
+  value       = module.scaffold.repository_url
   description = "string ||| Service container image url."
 }
 
 output "image_pusher" {
-  value = {
-    role_arn         = try(aws_iam_role.image_pusher[0].arn, "")
-    session_duration = 900 // 15 minutes
-  }
-
+  value       = module.scaffold.image_pusher
   description = "object({ role_arn: string, session_duration: number }) ||| An AWS Role with explicit privilege to push images."
 }
 
 output "deployer" {
-  value = {
-    role_arn         = aws_iam_role.deployer.arn
-    session_duration = 3600 // 1 hour
-  }
-
+  value       = module.scaffold.deployer
   description = "object({ role_arn: string, session_duration: number }) ||| An AWS Role with explicit privilege to deploy."
 }
 

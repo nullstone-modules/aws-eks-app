@@ -1,61 +1,5 @@
-resource "aws_iam_role" "app" {
-  name               = local.resource_name
-  tags               = local.tags
-  assume_role_policy = local.use_irsa ? data.aws_iam_policy_document.app_irsa_assume.json : data.aws_iam_policy_document.app_assume.json
-}
-
-// Enable Pod Identity Agent to grant an IAM role to the Kubernetes service account
-data "aws_iam_policy_document" "app_assume" {
-  statement {
-    sid    = "AllowEKSAuthToAssumeRoleForPodIdentity"
-    effect = "Allow"
-
-    actions = [
-      "sts:AssumeRole",
-      "sts:TagSession",
-    ]
-
-    principals {
-      type        = "Service"
-      identifiers = ["pods.eks.amazonaws.com"]
-    }
-  }
-}
-
-locals {
-  oidc_issuer_noproto = replace(local.cluster_oidc_issuer, "https://", "")
-}
-
-// EKS Fargate clusters cannot use pod identity agent to gain an IAM role from a Kubernetes service account
-// Instead, we use the cluster's OpenId provider to grant the IAM role
-data "aws_iam_policy_document" "app_irsa_assume" {
-  statement {
-    effect  = "Allow"
-    actions = ["sts:AssumeRoleWithWebIdentity"]
-
-    principals {
-      type        = "Federated"
-      identifiers = [local.cluster_openid_provider_arn]
-    }
-
-    # Lock to this service account only
-    condition {
-      test     = "StringEquals"
-      variable = "${local.oidc_issuer_noproto}:sub"
-      values   = ["system:serviceaccount:${local.app_namespace}:${local.app_name}"]
-    }
-
-    # Standard audience restriction
-    condition {
-      test     = "StringEquals"
-      variable = "${local.oidc_issuer_noproto}:aud"
-      values   = ["sts.amazonaws.com"]
-    }
-  }
-}
-
 resource "aws_iam_role_policy" "app" {
-  role   = aws_iam_role.app.id
+  role   = module.scaffold.app_role.name
   policy = data.aws_iam_policy_document.app.json
 }
 
@@ -64,7 +8,7 @@ data "aws_iam_policy_document" "app" {
     sid       = "AllowPassRoleToECS"
     effect    = "Allow"
     actions   = ["iam:PassRole"]
-    resources = [aws_iam_role.app.arn]
+    resources = [module.scaffold.app_role.arn]
   }
 
   dynamic "statement" {
@@ -92,18 +36,9 @@ resource "kubernetes_service_account_v1" "app" {
 
     annotations = local.use_irsa ? {
       // IRSA: indicates which AWS IAM role this kubernetes service account can impersonate
-      "eks.amazonaws.com/role-arn" = aws_iam_role.app.arn
+      "eks.amazonaws.com/role-arn" = module.scaffold.app_role.arn
     } : {}
   }
 
   automount_service_account_token = true
-}
-
-resource "aws_eks_pod_identity_association" "app" {
-  count = local.use_irsa ? 0 : 1
-
-  cluster_name    = local.cluster_name
-  namespace       = kubernetes_service_account_v1.app.metadata[0].namespace
-  service_account = kubernetes_service_account_v1.app.metadata[0].name
-  role_arn        = aws_iam_role.app.arn
 }

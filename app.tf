@@ -14,7 +14,7 @@ locals {
   app_metadata = tomap({
     // Inject app metadata into capabilities here (e.g. security_group_name, role_name)
     security_group_id  = aws_security_group.this.id
-    role_name          = aws_iam_role.app.name
+    role_name          = module.scaffold.app_role.name
     main_container     = local.main_container_name
     container_port     = var.container_port
     service_port       = var.service_port

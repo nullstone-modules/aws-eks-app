@@ -27,10 +27,10 @@ resource "aws_secretsmanager_secret_version" "app_secret" {
 // This works because any time a secret value changes, the "latest" version changes
 locals {
   managed_secrets_versions = {
-    for key in local.managed_secret_keys : key => aws_secretsmanager_secret_version.app_secret[key].arn
+    for key in local.managed_secret_keys : key => aws_secretsmanager_secret_version.app_secret[key].version_id
   }
   unmanaged_secrets_versions = {
-    for key in local.unmanaged_secret_keys : key => data.aws_secretsmanager_secret_version.unmanaged[key].arn
+    for key in local.unmanaged_secret_keys : key => data.aws_secretsmanager_secret_version.unmanaged[key].version_id
   }
   secrets_checksum = sha256(jsonencode(merge(local.unmanaged_secrets_versions, local.managed_secrets_versions)))
 }

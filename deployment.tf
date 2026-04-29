@@ -1,0 +1,407 @@
+locals {
+  main_container_name = "main"
+  command             = length(var.command) > 0 ? var.command : null
+  effective_image_url = local.app_version == "" ? local.image_url : "${local.image_url}:${local.app_version}"
+
+  deployment_annotations = tomap({ for ann in local.capabilities.deployment_annotations : ann.name => ann.value })
+}
+
+resource "kubernetes_deployment_v1" "this" {
+  wait_for_rollout = false
+
+  metadata {
+    name        = local.app_name
+    namespace   = local.app_namespace
+    labels      = local.app_labels
+    annotations = local.deployment_annotations
+  }
+
+  # Pods specs
+  spec {
+    replicas               = var.replicas
+    revision_history_limit = 10
+
+    strategy {
+      type = "RollingUpdate"
+
+      rolling_update {
+        max_surge       = "25%"
+        max_unavailable = "25%"
+      }
+    }
+
+    selector {
+      match_labels = local.match_labels
+    }
+
+    template {
+      metadata {
+        labels = local.app_labels
+
+        annotations = {
+          "nullstone.io/secrets-checksum" = local.secrets_checksum
+        }
+      }
+
+      spec {
+        restart_policy       = "Always"
+        service_account_name = kubernetes_service_account_v1.app.metadata[0].name
+
+        dynamic "volume" {
+          for_each = local.volumes
+
+          content {
+            name = volume.value.name
+
+            dynamic "empty_dir" {
+              for_each = volume.value.empty_dir == null ? [] : [1]
+              content {}
+            }
+
+            dynamic "persistent_volume_claim" {
+              for_each = volume.value.persistent_volume_claim == null ? [] : [volume.value.persistent_volume_claim]
+              iterator = pvc
+
+              content {
+                claim_name = pvc.value.claim_name
+                read_only  = lookup(pvc.value, "read_only", null)
+              }
+            }
+
+            dynamic "host_path" {
+              for_each = volume.value.host_path == null ? [] : [volume.value.host_path]
+              iterator = hp
+
+              content {
+                type = hp.value.type
+                path = hp.value.path
+              }
+            }
+          }
+        }
+
+        dynamic "volume" {
+          for_each = length(local.all_secret_keys) > 0 ? [1] : []
+
+          content {
+            name = "secrets-store"
+
+            csi {
+              driver    = "secrets-store.csi.k8s.io"
+              read_only = true
+
+              volume_attributes = {
+                secretProviderClass = kubernetes_manifest.secret_provider_class[volume.key].manifest.metadata.name
+              }
+            }
+          }
+        }
+
+        container {
+          name  = local.main_container_name
+          image = local.effective_image_url
+          args  = local.command
+
+          security_context {
+            capabilities {
+              drop = ["ALL"]
+            }
+          }
+
+          resources {
+            requests = {
+              cpu    = var.cpu
+              memory = var.memory
+            }
+
+            limits = merge(
+              var.max_cpu != "" ? { cpu = var.max_cpu } : {},
+              var.max_memory != "" ? { memory = var.max_memory } : {},
+            )
+          }
+
+          dynamic "startup_probe" {
+            for_each = local.startup_probes
+            iterator = sp
+
+            content {
+              initial_delay_seconds = sp.value.initial_delay_seconds
+              period_seconds        = sp.value.period_seconds
+              timeout_seconds       = sp.value.timeout_seconds
+              success_threshold     = sp.value.success_threshold
+              failure_threshold     = sp.value.failure_threshold
+
+              dynamic "exec" {
+                for_each = sp.value.exec
+                content {
+                  command = exec.value.command
+                }
+              }
+
+              dynamic "grpc" {
+                for_each = sp.value.grpc
+                content {
+                  port    = grpc.value.port
+                  service = lookup(grpc.value, "service", null)
+                }
+              }
+
+              dynamic "tcp_socket" {
+                for_each = sp.value.tcp_socket
+                content {
+                  port = tcp_socket.value.port
+                }
+              }
+
+              dynamic "http_get" {
+                for_each = sp.value.http_get
+                content {
+                  host   = lookup(http_get.value, "host", null)
+                  path   = lookup(http_get.value, "path", null)
+                  port   = lookup(http_get.value, "port", null)
+                  scheme = lookup(http_get.value, "scheme", null)
+
+                  dynamic "http_header" {
+                    for_each = compact(lookup(http_get.value, "http_headers", []))
+                    iterator = header
+
+                    content {
+                      name  = header.value.name
+                      value = header.value.value
+                    }
+                  }
+                }
+              }
+            }
+          }
+
+          dynamic "readiness_probe" {
+            for_each = local.readiness_probes
+            iterator = sp
+
+            content {
+              initial_delay_seconds = sp.value.initial_delay_seconds
+              period_seconds        = sp.value.period_seconds
+              timeout_seconds       = sp.value.timeout_seconds
+              success_threshold     = sp.value.success_threshold
+              failure_threshold     = sp.value.failure_threshold
+
+              dynamic "exec" {
+                for_each = sp.value.exec
+                content {
+                  command = exec.value.command
+                }
+              }
+
+              dynamic "grpc" {
+                for_each = sp.value.grpc
+                content {
+                  port    = grpc.value.port
+                  service = lookup(grpc.value, "service", null)
+                }
+              }
+
+              dynamic "tcp_socket" {
+                for_each = sp.value.tcp_socket
+                content {
+                  port = tcp_socket.value.port
+                }
+              }
+
+              dynamic "http_get" {
+                for_each = sp.value.http_get
+                content {
+                  host   = lookup(http_get.value, "host", null)
+                  path   = lookup(http_get.value, "path", null)
+                  port   = lookup(http_get.value, "port", null)
+                  scheme = lookup(http_get.value, "scheme", null)
+
+                  dynamic "http_header" {
+                    for_each = compact(lookup(http_get.value, "http_headers", []))
+                    iterator = header
+
+                    content {
+                      name  = header.value.name
+                      value = header.value.value
+                    }
+                  }
+                }
+              }
+            }
+          }
+
+          dynamic "liveness_probe" {
+            for_each = local.liveness_probes
+            iterator = lp
+
+            content {
+              initial_delay_seconds = lp.value.initial_delay_seconds
+              period_seconds        = lp.value.period_seconds
+              timeout_seconds       = lp.value.timeout_seconds
+              success_threshold     = lp.value.success_threshold
+              failure_threshold     = lp.value.failure_threshold
+
+              dynamic "exec" {
+                for_each = lp.value.exec
+                content {
+                  command = exec.value.command
+                }
+              }
+
+              dynamic "grpc" {
+                for_each = lp.value.grpc
+                content {
+                  port    = grpc.value.port
+                  service = lookup(grpc.value, "service", null)
+                }
+              }
+
+              dynamic "tcp_socket" {
+                for_each = lp.value.tcp_socket
+                content {
+                  port = tcp_socket.value.port
+                }
+              }
+
+              dynamic "http_get" {
+                for_each = lp.value.http_get
+                content {
+                  host   = lookup(http_get.value, "host", null)
+                  path   = lookup(http_get.value, "path", null)
+                  port   = lookup(http_get.value, "port", null)
+                  scheme = lookup(http_get.value, "scheme", null)
+
+                  dynamic "http_header" {
+                    for_each = compact(lookup(http_get.value, "http_headers", []))
+                    iterator = header
+
+                    content {
+                      name  = header.value.name
+                      value = header.value.value
+                    }
+                  }
+                }
+              }
+            }
+          }
+
+          dynamic "port" {
+            for_each = var.container_port > 0 ? [var.container_port] : []
+
+            content {
+              container_port = port.value
+            }
+          }
+
+          // env vars with plain "value"
+          dynamic "env" {
+            for_each = local.env_vars_plain
+
+            content {
+              name  = env.key
+              value = env.value
+            }
+          }
+
+          // env vars with "{{ k8s.field(apiVersion, fieldPath) }}"
+          dynamic "env" {
+            for_each = local.env_var_field_refs
+            content {
+              name = env.key
+              value_from {
+                field_ref {
+                  api_version = env.value.api_version
+                  field_path  = env.value.field_path
+                }
+              }
+            }
+          }
+
+          // env vars with "{{ k8s.configMap(key, name[, optional]) }}"
+          dynamic "env" {
+            for_each = local.env_var_config_map_refs
+            content {
+              name = env.key
+              value_from {
+                config_map_key_ref {
+                  key      = env.value.key
+                  name     = env.value.name
+                  optional = env.value.optional
+                }
+              }
+            }
+          }
+
+          // env vars with "{{ k8s.resourceField(resource[, container, divisor]) }}"
+          dynamic "env" {
+            for_each = local.env_var_resource_field_refs
+            content {
+              name = env.key
+              value_from {
+                resource_field_ref {
+                  resource       = env.value.resource
+                  container_name = env.value.container
+                  divisor        = env.value.divisor
+                }
+              }
+            }
+          }
+
+          // env vars with "{{ k8s.fileKey(key, path, volumeName) }}"
+          // Requires K8s 1.34+ and EnvFiles feature gate
+          dynamic "env" {
+            for_each = local.env_var_file_key_refs
+            content {
+              name = env.key
+              value_from {
+                file_key_ref {
+                  key         = env.value.key
+                  path        = env.value.path
+                  volume_name = env.value.volume_name
+                }
+              }
+            }
+          }
+
+          // env vars with "{{ secret() }}"
+          dynamic "env" {
+            for_each = local.all_secret_keys
+
+            content {
+              name = env.value
+
+              value_from {
+                secret_key_ref {
+                  name = local.app_secret_store_name
+                  key  = env.value
+                }
+              }
+            }
+          }
+
+          dynamic "volume_mount" {
+            for_each = local.volume_mounts
+
+            content {
+              name              = volume_mount.key
+              mount_path        = volume_mount.value.mount_path
+              sub_path          = volume_mount.value.sub_path
+              mount_propagation = volume_mount.value.mount_propagation
+              read_only         = volume_mount.value.read_only
+            }
+          }
+
+          dynamic "volume_mount" {
+            for_each = length(local.all_secret_keys) > 0 ? [1] : []
+
+            content {
+              name       = "secrets-store"
+              mount_path = "/mnt/secrets-store"
+              read_only  = true
+            }
+          }
+        }
+      }
+    }
+  }
+}

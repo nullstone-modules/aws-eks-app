@@ -1,3 +1,18 @@
+// Environment Variables and Secrets
+//
+// This file is responsible for aggregating environment variables and secrets from multiple sources
+// - Standard Environment Variables (NULLSTONE_APP, etc.)
+// - AWS Environment Variables (AWS_REGION, etc.)
+// - User Input (var.env_vars, var.secrets)
+// - Capability Outputs (output.env, output.secrets)
+//
+// For secrets, we need to do the following:
+// 1. Add secrets to GCP secrets manager (var.secrets, local.capabilities.secrets)
+//   -> Don't add secret for `{{ secret(...) }}` -- these are secrets that already exist in GCP
+// 2. Add app access to GCP secrets manager secrets (var.secrets, local.capabilities.secrets)
+// 3. Add k8s secret referencing associated GCP secrets manager secrets
+// 4. Add env var to pod referencing k8s secret
+
 variable "env_vars" {
   type        = map(string)
   default     = {}
@@ -19,6 +34,13 @@ EOF
 }
 
 locals {
+  cap_env_vars = {
+    for item in local.capabilities.env : "${local.cap_env_prefixes[item.cap_tf_id]}${item.name}" => item.value
+  }
+  cap_secrets = {
+    for item in local.capabilities.secrets : "${local.cap_env_prefixes[item.cap_tf_id]}${item.name}" => sensitive(item.value)
+  }
+
   standard_env_vars = tomap({
     NULLSTONE_STACK         = data.ns_workspace.this.stack_name
     NULLSTONE_APP           = data.ns_workspace.this.block_name
@@ -28,9 +50,13 @@ locals {
     NULLSTONE_PUBLIC_HOSTS  = join(",", local.public_hosts)
     NULLSTONE_PRIVATE_HOSTS = join(",", local.private_hosts)
   })
+  aws_env_vars = tomap({
+    AWS_REGION = local.region
+  })
 
-  input_env_vars = merge(local.standard_env_vars, local.cap_env_vars, var.env_vars)
-  input_secrets  = merge(local.cap_secrets, var.secrets)
+  input_env_vars    = merge(local.standard_env_vars, local.aws_env_vars, local.cap_env_vars, var.env_vars)
+  input_secrets     = merge(local.cap_secrets, var.secrets)
+  input_secret_keys = nonsensitive(concat(keys(local.cap_secrets), keys(var.secrets)))
 }
 
 data "ns_env_variables" "this" {
@@ -38,8 +64,48 @@ data "ns_env_variables" "this" {
   input_secrets       = local.input_secrets
 }
 
+// "existing" adds support for the `secret(...)` syntax
+// This only supports `secret(...)` specified by the user
+data "ns_env_variables" "existing" {
+  input_env_variables = var.env_vars
+  input_secrets       = {}
+}
+
+data "ns_secret_keys" "this" {
+  input_env_variables = var.env_vars
+  input_secret_keys   = local.input_secret_keys
+}
+
 locals {
-  secret_keys  = data.ns_env_variables.this.secret_keys
-  all_secrets  = data.ns_env_variables.this.secrets
-  all_env_vars = data.ns_env_variables.this.env_variables
+  // env_vars_plain contains environment variables with plain values, excluding:
+  // - secret(...)
+  // - field(...)
+  // - configMap(...)
+  // - resourceField(...)
+  // - fileKey(...)
+  // This is a map of name => value
+  env_vars_plain = data.ns_env_variables.this.env_variables
+
+  // These are env vars with structured valueFrom
+  env_var_field_refs          = try(data.ns_env_variables.this.field_refs, {})
+  env_var_config_map_refs     = try(data.ns_env_variables.this.config_map_refs, {})
+  env_var_resource_field_refs = try(data.ns_env_variables.this.resource_field_refs, {})
+  env_var_file_key_refs       = try(data.ns_env_variables.this.file_key_refs, {})
+
+  // unmanaged_secret_keys are secrets that are not managed by this module
+  // This is a list of string for all references where a user specified {{ secret(...) }}
+  // The value of each item is the "..." inside secret()
+  unmanaged_secret_keys = toset([for key, value in data.ns_env_variables.existing.secret_refs : key])
+  // managed_secret_keys is a list of keys for secrets that this module manages
+  // This excludes references to existing secrets {{ secret(...) }}
+  managed_secret_keys = setsubtract(data.ns_secret_keys.this.secret_keys, local.unmanaged_secret_keys)
+  all_secret_keys     = toset(concat(tolist(local.unmanaged_secret_keys), tolist(local.managed_secret_keys)))
+
+  // unmanaged_secrets is a map of name => secret_ref
+  unmanaged_secrets = data.ns_env_variables.existing.secret_refs
+  // managed_secrets is a map of name => secret_ref
+  managed_secrets = { for key in local.managed_secret_keys : key => aws_secretsmanager_secret.app_secret[key].arn }
+  // managed_secret_values is a map of name => value
+  managed_secret_values = data.ns_env_variables.this.secrets
+  all_secrets           = merge(local.unmanaged_secrets, local.managed_secrets)
 }

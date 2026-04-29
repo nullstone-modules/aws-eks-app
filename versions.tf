@@ -7,12 +7,13 @@ terraform {
       version = "~> 0.8.3"
     }
     aws = {
-      source  = "hashicorp/aws"
-      version = "~> 6.0"
+      source = "hashicorp/aws"
+    }
+    kubernetes = {
+      source = "hashicorp/kubernetes"
     }
     random = {
-      source  = "hashicorp/random"
-      version = "~> 3.8"
+      source = "hashicorp/random"
     }
   }
 }

@@ -112,7 +112,7 @@ This module consumes the following capability outputs:
 | `volumes`, `volume_mounts` | Attach K8s volumes to the pod. |
 | `startup_probes`, `readiness_probes`, `liveness_probes` | Container probe configuration. |
 | `service_annotations` | Annotations on the `Service` resource (e.g. AWS Load Balancer Controller hints). |
-| `deployment_annotations` | Reserved (currently collected but not applied). |
+| `deployment_annotations` | Annotations on the `Deployment` resource. |
 
 ## Outputs (developer-facing)
 

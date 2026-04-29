@@ -2,15 +2,18 @@ locals {
   main_container_name = "main"
   command             = length(var.command) > 0 ? var.command : null
   effective_image_url = local.app_version == "" ? local.image_url : "${local.image_url}:${local.app_version}"
+
+  deployment_annotations = tomap({ for ann in local.capabilities.deployment_annotations : ann.name => ann.value })
 }
 
 resource "kubernetes_deployment_v1" "this" {
   wait_for_rollout = false
 
   metadata {
-    name      = local.app_name
-    namespace = local.app_namespace
-    labels    = local.app_labels
+    name        = local.app_name
+    namespace   = local.app_namespace
+    labels      = local.app_labels
+    annotations = local.deployment_annotations
   }
 
   # Pods specs

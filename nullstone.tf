@@ -52,8 +52,9 @@ locals {
     "app.kubernetes.io/managed-by" = "nullstone"
     // nullstone labels
     "nullstone.io/stack"     = local.stack_name
-    "nullstone.io/block"     = local.block_name
     "nullstone.io/block-ref" = local.block_ref
+    "nullstone.io/app"       = data.ns_workspace.this.block_name
+    "nullstone.io/block"     = local.block_name
     "nullstone.io/env"       = local.env_name
   }
 }

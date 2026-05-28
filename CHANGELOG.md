@@ -1,3 +1,6 @@
+# 0.1.3 (May 28, 2026)
+* Fixed secrets interpolation issues by upgrading nullstone terraform provider.
+
 # 0.1.2 (May 1, 2026)
 * Added `nullstone.io/app` label to components.
 

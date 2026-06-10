@@ -1,3 +1,6 @@
+# 0.1.4 (Jun 10, 2026)
+* Upgraded terraform providers.
+
 # 0.1.3 (May 28, 2026)
 * Fixed secrets interpolation issues by upgrading nullstone terraform provider.
 

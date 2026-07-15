@@ -19,5 +19,6 @@ locals {
     container_port     = var.container_port
     service_port       = var.service_port
     internal_subdomain = var.service_port == 0 ? "" : "${local.block_name}.${local.kubernetes_namespace}.svc.cluster.local"
+    image_repo_name    = module.scaffold.repository_name
   })
 }

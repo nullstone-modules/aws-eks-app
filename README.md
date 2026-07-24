@@ -32,8 +32,29 @@ To use an externally managed image, set `image_url` to a fully qualified registr
 | `command` | image default | Override the container `CMD`. Each token is one list element. |
 | `container_port` | `8080` | Port the container listens on. Must be ≥1024 (no privileged ports). |
 | `service_port` | `80` | Port other services use to reach this app via `<app>:<service_port>`. Set to `0` to disable the `Service` entirely. |
+| `rolling_update_strategy` | `max_surge = "1"`, `max_unavailable = "0"` | Rollout pacing. Set to `null` for the Kubernetes default (25% / 25%). |
+| `termination_grace_seconds` | `30` | Seconds after SIGTERM before the pod is force-killed. |
 
-Rolling updates are configured at 25% surge / 25% unavailable. The deployment keeps the last 10 revisions.
+The deployment keeps the last 10 revisions.
+
+Capabilities can further constrain scheduling through the `resource_limits`, `node_selectors`, `tolerations`, and `topology_spread_constraints` outputs — see [Capabilities](#capabilities). Extended resources such as `nvidia.com/gpu` arrive that way and are merged into the container's `resources.limits` alongside `max_cpu` / `max_memory`.
+
+## Zero-downtime rollouts
+
+The defaults (`max_surge = "1"`, `max_unavailable = "0"`) guarantee serving capacity never drops during a rollout: a new pod becomes ready before an old one is removed.
+
+Closing the remaining gap requires coordinating pod termination with load balancer deprogramming. An attached load balancer capability can supply a `deployment_overrides` output with:
+
+- `pre_stop_seconds` — the container gets a `preStop` hook that sleeps this long, holding the listener open while the load balancer removes the endpoint. Without it, in-flight requests can land on a terminating pod and surface as connection resets.
+- `termination_grace_period_seconds` — the effective grace period is the **larger** of this and `var.termination_grace_seconds`.
+
+> **No AWS capability produces `deployment_overrides` today.** The consumer side is wired and ready, but until a load balancer capability emits it, `preStop` is not applied and only the surge/unavailable guarantee is in effect.
+
+When `replicas >= 2`, the module also emits a PodDisruptionBudget with `minAvailable: replicas - 1`, so voluntary disruptions (node drains, node group upgrades) can never take down the last ready replica. Single-replica apps get no PDB — `minAvailable: 0` protects nothing, and `minAvailable: 1` would block node drains entirely.
+
+### Handling SIGTERM in your application
+
+For any of this to help, your app must stop accepting new work on SIGTERM, finish in-flight requests, then exit. An app that ignores SIGTERM will be force-killed at the end of the grace period regardless of these settings.
 
 ## Networking
 
@@ -89,7 +110,7 @@ Startup, readiness, and liveness probes are configured via capabilities (`startu
 
 ## Volumes
 
-Capabilities can mount volumes via the `volumes` and `volume_mounts` outputs. Supported volume sources: `empty_dir`, `persistent_volume_claim`, `host_path`. The CSI-mounted secrets volume (`/mnt/secrets-store`) is added automatically when secrets are present.
+Capabilities can mount volumes via the `volumes` and `volume_mounts` outputs. Supported volume sources: `empty_dir`, `persistent_volume_claim`, `host_path`, `secret`. The CSI-mounted secrets volume (`/mnt/secrets-store`) is added automatically when secrets are present.
 
 ## Logs & metrics
 
@@ -113,6 +134,11 @@ This module consumes the following capability outputs:
 | `startup_probes`, `readiness_probes`, `liveness_probes` | Container probe configuration. |
 | `service_annotations` | Annotations on the `Service` resource (e.g. AWS Load Balancer Controller hints). |
 | `deployment_annotations` | Annotations on the `Deployment` resource. |
+| `deployment_overrides` | `pre_stop_seconds` and `termination_grace_period_seconds` for zero-downtime termination. Only the first entry is read. |
+| `resource_limits` | Extended resources (e.g. `nvidia.com/gpu`) merged into the container's `resources.limits`. |
+| `node_selectors` | Constrain scheduling to nodes carrying these labels. |
+| `tolerations` | Allow scheduling onto tainted nodes. |
+| `topology_spread_constraints` | Spread replicas across failure domains. The pod selector is injected automatically. |
 
 ## Outputs (developer-facing)
 

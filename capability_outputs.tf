@@ -14,5 +14,10 @@ locals {
     "liveness_probes",
     "deployment_annotations",
     "service_annotations",
+    "deployment_overrides",
+    "resource_limits",
+    "node_selectors",
+    "tolerations",
+    "topology_spread_constraints",
   ]
 }

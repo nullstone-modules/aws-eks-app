@@ -4,6 +4,36 @@ locals {
   effective_image_url = local.app_version == "" ? local.image_url : "${local.image_url}:${local.app_version}"
 
   deployment_annotations = tomap({ for ann in local.capabilities.deployment_annotations : ann.name => ann.value })
+
+  # Termination coordination (preStop, grace period) supplied by an attached load
+  # balancer capability via the standard capability output aggregation. Read the
+  # first entry; when no capability supplies it the list is empty and we fall back
+  # to Kubernetes defaults.
+  effective_overrides = try(local.capabilities.deployment_overrides[0], null)
+
+  pre_stop_seconds = try(local.effective_overrides.pre_stop_seconds, null)
+  grace_seconds    = try(local.effective_overrides.termination_grace_period_seconds, null)
+
+  # Effective grace is the larger of the app's own setting and any capability override
+  # (e.g. a load balancer's drain window). var.termination_grace_seconds defaults to the
+  # k8s default of 30.
+  effective_grace_seconds = max(var.termination_grace_seconds, local.grace_seconds == null ? 0 : local.grace_seconds)
+
+  rolling_strategy = var.rolling_update_strategy
+
+  # Scheduling constraints supplied by capabilities: extended resource limits merged into
+  # the main container, node selectors, taint tolerations, and topology spread constraints
+  # (whose pod selector is injected here from match_labels).
+  cap_resource_limits = { for rl in local.capabilities.resource_limits : rl.name => rl.value }
+  resource_limits = merge(
+    var.max_cpu != "" ? { cpu = var.max_cpu } : {},
+    var.max_memory != "" ? { memory = var.max_memory } : {},
+    local.cap_resource_limits,
+  )
+
+  cap_node_selectors          = { for sel in local.capabilities.node_selectors : sel.name => sel.value }
+  tolerations                 = local.capabilities.tolerations
+  topology_spread_constraints = local.capabilities.topology_spread_constraints
 }
 
 resource "kubernetes_deployment_v1" "this" {
@@ -21,12 +51,16 @@ resource "kubernetes_deployment_v1" "this" {
     replicas               = var.replicas
     revision_history_limit = 10
 
-    strategy {
-      type = "RollingUpdate"
+    dynamic "strategy" {
+      for_each = local.rolling_strategy == null ? [] : [local.rolling_strategy]
 
-      rolling_update {
-        max_surge       = "25%"
-        max_unavailable = "25%"
+      content {
+        type = "RollingUpdate"
+
+        rolling_update {
+          max_surge       = try(strategy.value.max_surge, null)
+          max_unavailable = try(strategy.value.max_unavailable, null)
+        }
       }
     }
 
@@ -44,8 +78,38 @@ resource "kubernetes_deployment_v1" "this" {
       }
 
       spec {
-        restart_policy       = "Always"
-        service_account_name = kubernetes_service_account_v1.app.metadata[0].name
+        restart_policy                   = "Always"
+        service_account_name             = kubernetes_service_account_v1.app.metadata[0].name
+        termination_grace_period_seconds = local.effective_grace_seconds
+
+        node_selector = length(local.cap_node_selectors) > 0 ? local.cap_node_selectors : null
+
+        dynamic "toleration" {
+          for_each = local.tolerations
+
+          content {
+            key                = toleration.value.key
+            operator           = try(toleration.value.operator, null)
+            value              = try(toleration.value.value, null)
+            effect             = try(toleration.value.effect, null)
+            toleration_seconds = try(toleration.value.toleration_seconds, null)
+          }
+        }
+
+        dynamic "topology_spread_constraint" {
+          for_each = local.topology_spread_constraints
+          iterator = tsc
+
+          content {
+            max_skew           = try(tsc.value.max_skew, 1)
+            topology_key       = tsc.value.topology_key
+            when_unsatisfiable = try(tsc.value.when_unsatisfiable, "ScheduleAnyway")
+
+            label_selector {
+              match_labels = local.match_labels
+            }
+          }
+        }
 
         dynamic "volume" {
           for_each = local.volumes
@@ -77,6 +141,28 @@ resource "kubernetes_deployment_v1" "this" {
                 path = hp.value.path
               }
             }
+
+            dynamic "secret" {
+              for_each = volume.value.secret == null ? [] : [volume.value.secret]
+              iterator = sec
+
+              content {
+                secret_name  = sec.value.secret_name
+                default_mode = lookup(sec.value, "default_mode", null)
+                optional     = lookup(sec.value, "optional", null)
+
+                dynamic "items" {
+                  for_each = lookup(sec.value, "items", null) == null ? [] : sec.value.items
+                  iterator = item
+
+                  content {
+                    key  = item.value.key
+                    path = item.value.path
+                    mode = lookup(item.value, "mode", null)
+                  }
+                }
+              }
+            }
           }
         }
 
@@ -102,6 +188,20 @@ resource "kubernetes_deployment_v1" "this" {
           image = local.effective_image_url
           args  = local.command
 
+          # Hold the listener open while the load balancer deprograms this endpoint,
+          # preventing "connection termination" / "no healthy upstream" during rollouts.
+          dynamic "lifecycle" {
+            for_each = local.pre_stop_seconds == null || local.pre_stop_seconds == 0 ? [] : [1]
+
+            content {
+              pre_stop {
+                exec {
+                  command = ["/bin/sh", "-c", "sleep ${local.pre_stop_seconds}"]
+                }
+              }
+            }
+          }
+
           security_context {
             capabilities {
               drop = ["ALL"]
@@ -114,10 +214,9 @@ resource "kubernetes_deployment_v1" "this" {
               memory = var.memory
             }
 
-            limits = merge(
-              var.max_cpu != "" ? { cpu = var.max_cpu } : {},
-              var.max_memory != "" ? { memory = var.max_memory } : {},
-            )
+            # max_cpu/max_memory plus extended resources (e.g. "nvidia.com/gpu") merged
+            # from capability resource_limits outputs.
+            limits = local.resource_limits
           }
 
           dynamic "startup_probe" {

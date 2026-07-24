@@ -83,6 +83,18 @@ locals {
           claim_name = ""    // Required
           read_only  = false // Optional
         })
+        secret = jsonencode({
+          secret_name  = ""   // Required - name of the k8s Secret to project
+          default_mode = null // Optional - octal string (e.g. "0400")
+          optional     = null // Optional
+          items = [           // Optional - per-key filename/mode overrides
+            {
+              key  = ""
+              path = ""
+              mode = null
+            }
+          ]
+        })
       }
     ]
 
@@ -191,6 +203,63 @@ locals {
         cap_tf_id = "x"
         name      = ""
         value     = ""
+      }
+    ]
+
+    // deployment_overrides lets a capability (e.g. a load balancer) coordinate pod
+    // termination with backend deprogramming for zero-downtime rollouts.
+    // The app reads the first entry; null fields fall back to Kubernetes defaults.
+    deployment_overrides = [
+      {
+        cap_tf_id                        = "x"
+        pre_stop_seconds                 = null
+        termination_grace_period_seconds = null
+      }
+    ]
+
+    // resource_limits lets a capability merge extended resources (e.g. "nvidia.com/gpu" from a
+    // GPU capability) into the main container's resources.limits. Kubernetes defaults requests
+    // to match limits for extended resources.
+    resource_limits = [
+      {
+        cap_tf_id = "x"
+        name      = "nvidia.com/gpu"
+        value     = "1"
+      }
+    ]
+
+    // node_selectors constrain pod scheduling to nodes carrying these labels
+    // (e.g. a GPU capability targeting its node group).
+    node_selectors = [
+      {
+        cap_tf_id = "x"
+        name      = ""
+        value     = ""
+      }
+    ]
+
+    // tolerations allow pods to schedule onto tainted nodes (e.g. the
+    // nvidia.com/gpu=present:NoSchedule taint on GPU node groups).
+    tolerations = [
+      {
+        cap_tf_id          = "x"
+        key                = ""
+        operator           = "Equal|Exists"
+        value              = null
+        effect             = "NoSchedule|PreferNoSchedule|NoExecute"
+        toleration_seconds = null
+      }
+    ]
+
+    // topology_spread_constraints spread replicas across failure domains. The pod label
+    // selector is injected by this app (match_labels); capabilities only supply the topology
+    // parameters.
+    topology_spread_constraints = [
+      {
+        cap_tf_id          = "x"
+        max_skew           = 1
+        topology_key       = "kubernetes.io/hostname"
+        when_unsatisfiable = "DoNotSchedule|ScheduleAnyway"
       }
     ]
   }

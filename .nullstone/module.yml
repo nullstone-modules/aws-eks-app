@@ -4,6 +4,7 @@ friendly_name: EKS Application
 description: Creates an application launched in an AWS EKS cluster.
 category: app
 subcategory: container
+app_type: generic
 provider_types:
     - aws
 platform: k8s

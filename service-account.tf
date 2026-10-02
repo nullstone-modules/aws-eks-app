@@ -12,7 +12,7 @@ data "aws_iam_policy_document" "app" {
   }
 
   dynamic "statement" {
-    for_each = length(local.all_secret_keys) > 0 ? [1] : []
+    for_each = length(data.ns_env_layout.this.all_secret_keys) > 0 ? [1] : []
 
     content {
       sid       = "AllowReadSecrets"

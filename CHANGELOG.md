@@ -1,3 +1,9 @@
+# 0.4.0 (Oct 2, 2026)
+* Upgraded `nullstone-io/ns` provider to `~> 0.13.0`.
+* Replaced `ns_env_variables` and `ns_secret_keys` with the layered `ns_env_layout`, `ns_env_values`, and `ns_env_platform_data` data sources to aggregate environment variables and secrets.
+* Emitted the `env` platform data record, including the source of each variable and the Kubernetes secret key of each managed secret.
+* Upgraded capability scaffolding to emit `capability` on capability outputs and `cap_prefixes`.
+
 # 0.3.0 (Jul 24, 2026)
 * Added `var.rolling_update_strategy` (default `max_surge = "1"`, `max_unavailable = "0"`; set `null` for the Kubernetes default). **This changes rollout behavior** — previously the strategy was hardcoded to 25% surge / 25% unavailable. The new default never reduces serving capacity mid-rollout, at the cost of slower rollouts for large replica counts.
 * Added `var.termination_grace_seconds` (default 30). The effective grace period is the larger of this and any capability's `deployment_overrides.termination_grace_period_seconds`.
